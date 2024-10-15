@@ -7,11 +7,8 @@ This is a project created as an exercise for the Tachyus application by Junior D
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Running the Application](#running-the-application)
-- [Usage](#usage)
-- [Dependencies](#dependencies)
-- [External Libraries](#external-libraries)
-- [Contributing](#contributing)
-- [License](#license)
+- [Approach to the exercise](#Approach-excercise)
+- [Data Assumptions](#data-assumptions)
 
 ## Requirements
 
@@ -23,11 +20,22 @@ This is a project created as an exercise for the Tachyus application by Junior D
 - Matplotlib
 - Dash Bootstrap Components
 - plotly.express (px)
+Also you can use this command to install all necesary dependencies:
+pip install -r requirements.txt
 
 
 ## Installation
 
-1. **Clone the repository** (if applicable):
+1. **Clone the repository**:
    ```bash
-   git clone <repository-url>
-   cd <repository-directory>
+   git clone [<repository-url>](https://github.com/loliverom/Methane_Emissions_Dash.git)
+## Running the Application
+
+To start the application, run the following command in your terminal:
+    ```bash
+   python Dashboard.py
+
+This will start the Dash server on http://127.0.0.1:8050/. Open this URL in your web browser to access the application.
+**Note:** Ensure the required libraries are installed before running the script.
+
+##
