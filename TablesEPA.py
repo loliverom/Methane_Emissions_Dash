@@ -1,6 +1,7 @@
 import io
 import requests
 import pandas as pd
+import numpy as np
 
 class EPAQuery:
     """
@@ -47,11 +48,12 @@ def main():
         query = table_objects[table_name].construct_query_URL()
         epa_dfs[table_name] = table_objects[table_name].read_query_into_pandas(query)
 
-    # Obtener las tablas
+    # get the tables
     EF_W_EMISSIONS_SOURCE_GHG = epa_dfs['EF_W_EMISSIONS_SOURCE_GHG']
     rlps_ghg_emitter_facilities = epa_dfs['rlps_ghg_emitter_facilities']
 
-    # Manejar valores NaN
+    # Nan values handeling
+    EF_W_EMISSIONS_SOURCE_GHG['basin_associated_with_facility'] = EF_W_EMISSIONS_SOURCE_GHG['basin_associated_with_facility'].replace(" ", np.nan)
     EF_W_EMISSIONS_SOURCE_GHG['basin_associated_with_facility'] = EF_W_EMISSIONS_SOURCE_GHG['basin_associated_with_facility'].fillna('Unknown')
     #fixing common columns 
     EF_W_EMISSIONS_SOURCE_GHG['reporting_year'] = pd.to_datetime(EF_W_EMISSIONS_SOURCE_GHG['reporting_year'], format='%Y').dt.year
@@ -62,14 +64,14 @@ def main():
     methane_x_year = methane_x_year.groupby(['reporting_year', 'industry_segment', 'basin_associated_with_facility']).sum('total_reported_ch4_emissions').reset_index()
 
 
-    ## Second figure
+    ## Second and third figure
     #drop duplicates 
     rlps_ghg_emitter_facilities = rlps_ghg_emitter_facilities.drop_duplicates()
 
     # leave just 1 facility_id
     df_sorted = rlps_ghg_emitter_facilities.sort_values(by=['facility_id', 'year'], ascending=[True, False])
 
-    # Eliminar duplicados manteniendo el más reciente
+    # drop duplicates keeping the most recent year
     df_unique1 = df_sorted.drop_duplicates(subset=['facility_id'], keep='first')
     facility_parent_company = df_unique1[['facility_id','parent_company','state']]
     methane_vs_company = pd.merge(EF_W_EMISSIONS_SOURCE_GHG[['reporting_year','basin_associated_with_facility','reporting_category','total_reported_ch4_emissions','facility_id']]

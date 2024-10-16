@@ -3,10 +3,10 @@ import numpy as np
 import plotly.express as px
 import dash
 from dash import dcc, html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output,State
 import matplotlib.pyplot as plt
 import dash_bootstrap_components as dbc
-
+from dash.exceptions import PreventUpdate 
 
 ## import data from library 
 
@@ -14,25 +14,40 @@ from TablesEPA import main
 
 methane_x_year, methane_vs_company = main()
 
-# Step 4: Create the Dash app
-app = dash.Dash(__name__)
-
 # Define dropdown options
 basin_options = methane_x_year['basin_associated_with_facility'].unique().tolist()
-emission_options = methane_vs_company['reporting_category'].unique().tolist()
+emission_options = methane_vs_company.groupby(['state', 'reporting_category']).agg({'total_reported_ch4_emissions': 'sum'}).reset_index()
+#reporting category with more than 0
+emission_options = emission_options.loc[emission_options['total_reported_ch4_emissions']>0,'reporting_category'].unique().tolist()
+methane_vs_company = methane_vs_company.loc[methane_vs_company['reporting_category'].isin(emission_options),:]
 
-# Step 5: Layout for the Dash app
+
+# Create the Dash app
+app = dash.Dash(__name__)
+
+
+
+# Layout for the Dash app
 app.layout = html.Div([
+
     html.Div([
         
         html.Img(
             src="/assets/images/Tachyus-Logo.png",
             style={
-                'height': '120px',  
+                'height': '200px',  
                 'width': 'auto',
                 'float': 'left',  
                 'margin-right': '20px'  
             }
+        ),
+        html.Div(
+            style={
+            'border-left': '1px solid black',
+            'height': '250px',
+            'display': 'inline-block',
+            'margin-right': '20px'
+        }
         ),
         # Title
         html.H1(
@@ -40,15 +55,17 @@ app.layout = html.Div([
             style={
                 'display': 'inline-block',
                 'vertical-align': 'top',
-                'font-family': 'Arial'  
+                'font-family': 'Arial',
+                'font-size': '60px'  
             }
         )
     ], style={'display': 'flex', 'align-items': 'center'}),
-
+    html.Div([
+    html.H2("Figure 1: Methane Emissions vs. Year (Stacked by Industry Segment)", style={'font-family': 'Arial'})
+    ]),   
     html.Div([
         html.H3("Select a start year and finish year", style={'font-family': 'Arial'})
-    ]),
-    
+    ]), 
     #dropdowns first figure
     html.Div([
         # Start Year Dropdown
@@ -84,9 +101,6 @@ app.layout = html.Div([
         clearable=True,  # Allow clearing the selection
         placeholder="Select a Basin"
     ),
-    html.Div([
-    html.H3("Figure 1: Methane Emissions vs. Year (Stacked by Industry Segment)", style={'font-family': 'Arial'})
-    ]),
     # Graph component
     dcc.Graph(
         id='methane-emissions-graph',
@@ -123,32 +137,54 @@ app.layout = html.Div([
     # US Map Heatmap
     html.H2("Figure 3 (optional): Heat map of methane emissions by state", style={'font-family': 'Arial'}),
     
+    #optiones
     html.Div([
         dbc.Row([
+
+            # Column for the "Select year" dropdown
             dbc.Col([
                 html.H2("Select year:", style={'font-family': 'Arial'}),
                 dcc.Dropdown(
                     id='year-dw-heatmap',
                     options=[{'label': str(year), 'value': year} for year in methane_vs_company['reporting_year'].unique()],
-                    value=methane_vs_company['reporting_year'].min(), 
+                    value=methane_vs_company['reporting_year'].min(),
                     clearable=False,
                     placeholder="Select Year for Heatmap"
                 )
-            ], width=6),  
+            ], width=5),  # Adjust width as needed
 
+            # Column for the "Select Emission Source" dropdown and "Select All" button
             dbc.Col([
                 html.H2("Select Emission Source:", style={'font-family': 'Arial'}),
                 dcc.Dropdown(
                     id='emission-dw-heatmap',
                     options=[{'label': emission, 'value': emission} for emission in emission_options],
-                    value=emission_options, 
-                    multi=True,  
-                    clearable=True,  
+                    value=emission_options,
+                    multi=True,
+                    clearable=True,
                     placeholder="Select a Source for Heatmap"
+                ),
+                
+                # Add the "Select All" button below the dropdown
+                html.Button(
+                    "Select All",
+                    id='select-all-button',
+                    n_clicks=0,  # Initialize click counter
+                    style={
+                        'margin-top': '10px',
+                        'background-color': '#007bff',
+                        'color': 'white',
+                        'border': 'none',
+                        'padding': '10px 20px',
+                        'border-radius': '5px',
+                        'cursor': 'pointer'
+                    }
                 )
-            ], width=6)  
-        ], justify='between')
+            ], width=5),  # Adjust width as needed
+
+        ], justify='start')  # Align items to the left
     ]),
+
 
     dcc.Graph(id='methane-emissions-heatmap'),
     html.Div(
@@ -160,7 +196,15 @@ app.layout = html.Div([
             'color': 'black' 
         }
     )
-])
+], style={
+    'background-image': 'url("/assets/images/background.jpg")',  # Background image from assets
+    'background-size': 'cover',  # Ensures the background image covers the entire screen
+    'background-position': 'center',  # Center the image
+    'background-repeat': 'no-repeat',  # Prevent the image from repeating
+    'min-height': '100vh',  # Makes sure the background covers the full viewport height
+    'width': '100%'  # Ensures it covers the full width
+}
+)
 
 @app.callback(
     Output('methane-emissions-graph', 'figure'),
@@ -188,7 +232,8 @@ def figure1(start_year, end_year, selected_basin):
                   x='reporting_year', 
                   y='total_reported_ch4_emissions', 
                   color='industry_segment',
-                  labels={'reporting_year': 'Year', 'total_reported_ch4_emissions': 'Methane Emissions (CH4)'},
+                  labels={'reporting_year': 'Year', 'total_reported_ch4_emissions': 'Methane Emissions (CH4)',
+                          'industry_segment': 'Industry Segment'},
                   title='Methane Emissions by Industry Segment and Basin')
 
     # Set the legend to appear below the plot
@@ -250,6 +295,36 @@ def figure2(selected_year, selected_basin):
     )
     
     return fig
+#callback for All emissions botton
+@app.callback(
+    Output('emission-dw-heatmap', 'value'),
+    [Input('select-all-button', 'n_clicks')],
+    [State('emission-dw-heatmap', 'options')]
+)
+def select_all_emission_sources(n_clicks, options):
+    if n_clicks > 0:
+        return [option['value'] for option in options]
+    return dash.no_update  
+#callback for emission options
+@app.callback(
+    Output('emission-dw-heatmap', 'options'),
+    [Input('year-dw-heatmap', 'value')]
+)
+def update_emission_options(selected_year):
+    if selected_year is None:
+        raise PreventUpdate  # Si no hay año seleccionado, no hacer nada
+    
+
+    filtered_df = methane_vs_company[methane_vs_company['reporting_year'] == selected_year]
+    
+    filtered_df = filtered_df[filtered_df['total_reported_ch4_emissions'] > 0]
+
+    emission_options_filtered = filtered_df['reporting_category'].unique().tolist()
+    
+    # Create dropwsdown list
+    options = [{'label': emission, 'value': emission} for emission in emission_options_filtered]
+    
+    return options
 
 # Callback for updating the heatmap
 @app.callback(
@@ -259,7 +334,7 @@ def figure2(selected_year, selected_basin):
         Input('emission-dw-heatmap', 'value')
     ]
 )
-def update_heatmap(selected_year, selected_emissions):
+def figure3_heatmap(selected_year, selected_emissions):
     # Filter the data based on the selected year
     filtered_df = methane_vs_company[methane_vs_company['reporting_year'] == selected_year]
     
@@ -269,7 +344,14 @@ def update_heatmap(selected_year, selected_emissions):
 
     # Group by state and reporting category, summing the emissions
     heatmap_data = filtered_df.groupby(['state', 'reporting_category']).agg({'total_reported_ch4_emissions': 'sum'}).reset_index()
+    heatmap_data = heatmap_data.loc[heatmap_data['total_reported_ch4_emissions']>0,:]
 
+    #Calculate max values in range
+    # Get the maximum value of emissions
+    max_emissions = heatmap_data['total_reported_ch4_emissions'].max()
+
+    # Calculate the upper limit for the color bar (max value rounded up to nearest 1000)
+    max_emissions_rounded = np.ceil(max_emissions / 1000) * 1000
     # Create the heatmap using Plotly
     fig = px.choropleth(
         heatmap_data,
@@ -280,7 +362,8 @@ def update_heatmap(selected_year, selected_emissions):
         color_continuous_scale='Viridis',  # Color scale
         labels={'total_reported_ch4_emissions': 'Methane Emissions (CH4)'},
         title='Heatmap of Methane Emissions by State',
-        scope='usa'
+        scope='usa',
+        range_color=[0, max_emissions_rounded]  # Set the range of the color bar
     )
     # Update layout for better sizing
     fig.update_layout(
